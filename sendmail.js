@@ -26,7 +26,7 @@ module.exports = function (options) {
   const smtpHost = options.smtpHost || -1;
   const rejectUnauthorized = options.rejectUnauthorized;
   const autoEHLO = options.autoEHLO;
-  
+
   /*
    *   邮件服务返回代码含义 Mail service return code Meaning
    *   500   格式错误，命令不可识别（此错误也包括命令行过长）format error, command unrecognized (This error also includes command line too long)
@@ -88,12 +88,12 @@ module.exports = function (options) {
           return callback(new Error('can not resolve Mx of <' + domain + '>'));
         }
         if(smtpHost !== -1) data.push({exchange:smtpHost});
-        
+
         function tryConnect (i) {
           if (i >= data.length) return callback(new Error('can not connect to any SMTP server'));
 
           const sock = createConnection(smtpPort, data[i].exchange);
-        
+
           sock.on('error', function (err) {
             logger.error('Error on connectMx for: ', data[i], err);
             tryConnect(++i)
@@ -123,7 +123,7 @@ module.exports = function (options) {
     }
   }
 
-  function sendToSMTP (domain, srcHost, from, recipients, body, sender, cb) {
+  function sendToSMTP (domain, srcHost, from, recipients, body, cb) {
     const callback = (typeof cb === 'function') ? cb : function () {};
     connectMx(domain, function (err, sock) {
       if (err) {
@@ -170,11 +170,8 @@ module.exports = function (options) {
          }
          */
 
-      if(sender){
-        queue.push('MAIL FROM: ' + sender + ' <' + from + '>');
-      } else {
-        queue.push('MAIL FROM:<' + from + '>');
-      }
+
+      queue.push('MAIL FROM:<' + from + '>');
       const recipients_length = recipients.length;
       for (let i = 0; i < recipients_length; i++) {
         queue.push('RCPT TO:<' + recipients[i] + '>');
@@ -212,7 +209,7 @@ module.exports = function (options) {
                       }
                       data = parts[parts.length - 1]
                     });
-      
+
                     sock.removeAllListeners('close');
                     sock.removeAllListeners('end');
 
@@ -239,7 +236,7 @@ module.exports = function (options) {
               }
               w(cmd + ' ' + srcHost);
               break;
-            } 
+            }
 
           case 221: // bye
             sock.end();
@@ -254,7 +251,7 @@ module.exports = function (options) {
               } else {
                 upgraded = true;
               }
-              
+
               break;
             }
 
@@ -352,11 +349,13 @@ module.exports = function (options) {
    */
   function sendmail (mail, callback) {
     const mailcomposer = require('mailcomposer');
-    const mailMe = mailcomposer(mail);
+    const mailMe = mailcomposer({
+      ...mail,
+      from: mail.sender? `${mail.sender} <${mail.from}>` : mail.from,
+    });
     let recipients = [];
     let groups;
     let srcHost;
-    let sender;
     if (mail.to) {
       recipients = recipients.concat(getAddresses(mail.to));
     }
@@ -367,10 +366,6 @@ module.exports = function (options) {
 
     if (mail.bcc) {
       recipients = recipients.concat(getAddresses(mail.bcc));
-    }
-    
-    if (mail.sender) {
-       sender = mail.sender
     }
 
     groups = groupRecipients(recipients);
@@ -384,6 +379,7 @@ module.exports = function (options) {
         callback(err, null);
         return
       }
+
       if (dkimPrivateKey) {
         const signature = DKIMSign(message, {
           privateKey: dkimPrivateKey,
@@ -393,7 +389,7 @@ module.exports = function (options) {
         message = signature + '\r\n' + message;
       }
       for (let domain in groups) {
-        sendToSMTP(domain, srcHost, from, groups[domain], message, sender, callback);
+        sendToSMTP(domain, srcHost, from, groups[domain], message, callback);
       }
     });
   }

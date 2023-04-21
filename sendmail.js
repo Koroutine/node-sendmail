@@ -123,7 +123,7 @@ module.exports = function (options) {
     }
   }
 
-  function sendToSMTP (domain, srcHost, from, recipients, body, cb) {
+  function sendToSMTP (domain, srcHost, from, recipients, body, sender, cb) {
     const callback = (typeof cb === 'function') ? cb : function () {};
     connectMx(domain, function (err, sock) {
       if (err) {
@@ -170,7 +170,11 @@ module.exports = function (options) {
          }
          */
 
-      queue.push('MAIL FROM:<' + from + '>');
+      if(sender){
+        queue.push('MAIL FROM:' + sender + ' <' + from + '>');
+      } else {
+        queue.push('MAIL FROM:<' + from + '>');
+      }
       const recipients_length = recipients.length;
       for (let i = 0; i < recipients_length; i++) {
         queue.push('RCPT TO:<' + recipients[i] + '>');
@@ -352,6 +356,7 @@ module.exports = function (options) {
     let recipients = [];
     let groups;
     let srcHost;
+    let sender;
     if (mail.to) {
       recipients = recipients.concat(getAddresses(mail.to));
     }
@@ -362,6 +367,10 @@ module.exports = function (options) {
 
     if (mail.bcc) {
       recipients = recipients.concat(getAddresses(mail.bcc));
+    }
+    
+    if (mail.sender) {
+       sender = mail.sender
     }
 
     groups = groupRecipients(recipients);
@@ -384,7 +393,7 @@ module.exports = function (options) {
         message = signature + '\r\n' + message;
       }
       for (let domain in groups) {
-        sendToSMTP(domain, srcHost, from, groups[domain], message, callback);
+        sendToSMTP(domain, srcHost, from, groups[domain], message, sender, callback);
       }
     });
   }

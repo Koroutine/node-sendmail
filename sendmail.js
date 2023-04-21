@@ -171,7 +171,7 @@ module.exports = function (options) {
          */
 
       if(sender){
-        queue.push('MAIL FROM:' + sender + ' <' + from + '>');
+        queue.push('MAIL FROM: ' + sender + ' <' + from + '>');
       } else {
         queue.push('MAIL FROM:<' + from + '>');
       }
